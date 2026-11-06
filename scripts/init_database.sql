@@ -4,7 +4,7 @@ Database Setup Script
 ===============================================================================
 Script Purpose:
     This script creates the FoodPrice database and initializes the schemas
-    required for the food price data warehouse project.
+    and shared utilities required for the food price data warehouse project.
 
     It performs the following operations:
     1. Switches to the master database.
@@ -13,10 +13,13 @@ Script Purpose:
     4. Creates the required schemas:
        - stages: Stores staged data during the ETL process.
        - gold: Stores business-ready data for analytics and reporting.
+    5. Creates the utility function dbo.ToProperCase, used by the Gold
+       scripts to turn names like 'KOTA MEDAN' into 'Kota Medan'.
 
 WARNING:
     Running this script will permanently delete the existing FoodPrice
-    database and all its data before recreating it.
+    database and all its data before recreating it. After running it,
+    reload the staging table and then run the Gold script.
 
 ===============================================================================
 */
@@ -51,4 +54,29 @@ CREATE SCHEMA stages;
 GO
 
 CREATE SCHEMA gold;
+GO
+
+-- Utility function: proper case ('KALIMANTAN BARAT' -> 'Kalimantan Barat')
+CREATE OR ALTER FUNCTION dbo.ToProperCase (@Teks NVARCHAR(150))
+RETURNS NVARCHAR(150)
+AS
+BEGIN
+    IF @Teks IS NULL OR LEN(LTRIM(RTRIM(@Teks))) = 0
+        RETURN @Teks;
+
+    DECLARE @Hasil NVARCHAR(150) = LOWER(LTRIM(RTRIM(@Teks)));
+    DECLARE @Index INT = CHARINDEX(' ', @Hasil);
+
+    -- Capitalise the first letter of the first word
+    SET @Hasil = STUFF(@Hasil, 1, 1, UPPER(SUBSTRING(@Hasil, 1, 1)));
+
+    -- Capitalise the letter after every space
+    WHILE @Index > 0
+    BEGIN
+        SET @Hasil = STUFF(@Hasil, @Index + 1, 1, UPPER(SUBSTRING(@Hasil, @Index + 1, 1)));
+        SET @Index = CHARINDEX(' ', @Hasil, @Index + 1);
+    END
+
+    RETURN @Hasil;
+END;
 GO
